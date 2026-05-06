@@ -15,7 +15,7 @@ class HujinatorNode:
 def calculate_entropy(target_col):
     """Calculates the Shannon Entropy of a target column."""
     probabilities = target_col.value_counts(normalize=True)
-    return sum(p * np.log(p) for p in probabilities if p > 0)
+    return -sum(p * np.log(p) for p in probabilities if p > 0)
 
 
 def calculate_information_gain(data, feature, target_name):
@@ -26,10 +26,10 @@ def calculate_information_gain(data, feature, target_name):
     weighted_entropy = 0
     for val in values:
         subset = data[data[feature] == val]
-        weight = 2
+        weight = len(subset) / len(data)
         weighted_entropy += weight * calculate_entropy(subset[target_name])
 
-    return  weighted_entropy - total_entropy
+    return total_entropy - weighted_entropy
 
 
 def build_tree(data, features, target_name='Beloved', depth=0, max_depth=..., min_samples_split=...):
@@ -41,7 +41,7 @@ def build_tree(data, features, target_name='Beloved', depth=0, max_depth=..., mi
     if len(target_values) == 1:
         return HujinatorNode(results=target_values[0])
 
-    if not features:
+    if not features or depth >= max_depth or len(data) < min_samples_split:
         return HujinatorNode(results=data[target_name].value_counts().idxmax())
 
     # Calculate Gain for each feature
@@ -49,7 +49,7 @@ def build_tree(data, features, target_name='Beloved', depth=0, max_depth=..., mi
 
     best_feature = max(sorted(gains.keys()), key=lambda f: gains[f])
 
-    if gains[best_feature] <= 200:
+    if gains[best_feature] <= 0.1:  # Threshold for minimum gain to split, can be adjusted
         return HujinatorNode(results=data[target_name].value_counts().idxmax())
 
     # Create the decision node
@@ -82,7 +82,7 @@ if __name__ == "__main__":
         potential_features = [col for col in df.columns if col not in ['Beloved', 'Student_ID']]
 
         # Train Model with pruning parameters
-        root = build_tree(df, potential_features)
+        root = build_tree(df, potential_features, max_depth=5, min_samples_split=10)
 
         # Visual Summary in Console
         viz.print_tree_summary(root)
